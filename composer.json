@@ -1,0 +1,43 @@
+{
+    "name": "parser/autoload",
+    "type": "composer-plugin",
+    "version": "1.0.0",
+    "description": "Composer plugin for Parser3 autoload dump.",
+    "keywords": ["parser3", "composer", "autoload", "plugin"],
+    "homepage": "https://github.com/parser3/autoload",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Leonid Knyazev",
+            "email": "leonid@knyazev.me",
+            "homepage": "https://knyazev.me",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/parser3/autoload/issues"
+    },
+    "require": {
+        "composer-plugin-api": "^1.0"
+    },
+    "require-dev": {
+        "composer/composer": "^1.2",
+        "phpunit/phpunit": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Parser\\Composer\\": ["src/"]
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Parser\\Composer\\Test\\": ["test/"]
+        }
+    },
+    "extra": {
+        "class": "Parser\\Composer\\Plugin"
+    },
+    "repositories": [
+        {"type": "composer", "url": "https://packages.knyazev.me"}
+    ]
+}
