@@ -1,6 +1,6 @@
-# parser/composer
+# parser/autoload
 
-Composer plugin for Parser3.
+Composer plugin for Parser3 autoload dump.
 
 ---
 
@@ -12,7 +12,7 @@ Coming soon...
 
 ## References
 
-- Questions to <leonid@knyazev.me> | <n3o@design.ru>
+- Questions to Leonid Knyazev <leonid@knyazev.me> | <n3o@design.ru>
 - Bug reports and Feature requests to Issues.
 
 ---
