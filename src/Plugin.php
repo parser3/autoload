@@ -306,7 +306,10 @@ locals
 	\$class[^class.trim[right;.\${type}]]
 
 	^rem{*** find namespace ***}
+	\$found(false)
+
 	^if(^self.namespaces.locate[namespace;\$class]){
+		\$found(true)
 		\$namespace[\$class]
 	}{
 		\$_parts[^class.split[/;r]]
@@ -316,29 +319,36 @@ locals
 			\$namespace[^class.match[\$piece][gi]{}]
 
 			^if(^self.namespaces.locate[namespace;\$namespace]){
+				\$found(true)
 				^break[]
 			}
 		}
 	}
 
-	^if(def \$namespace){
-		^rem{*** find file name ***}
-		\$name[^class.match[\$namespace][gi]{}]
-		\$name[^name.trim[both;/]]
+	^rem{*** find file name ***}
+	\$name[^class.match[\$namespace][gi]{}]
+	\$name[^name.trim[both;/]]
 
-		^if(!def \$name){
-			\$name[^file:basename[\$class]]
-		}
+	^if(!def \$name){
+		\$name[^file:basename[\$class]]
+	}
 
-		^rem{*** find file ***}
+	^if(\$found){
 		\$paths[^self.namespaces.select(\$self.namespaces.namespace eq \$namespace)]
-
+	}{
+		\$paths[^self.namespaces.select(\$self.namespaces.namespace eq "*")]
+	}
+	
+	^if(\$paths){
 		^paths.menu{
 			\$path[\$paths.path]
 
 			^rem{*** find class file ***}
 			^if(-f "\${path}/\${name}.\${type}"){
 				^self._use[\${path}/\${name}.\${type}]
+				^break[]
+			}(-f "\${path}/\${namespace}.\${type}"){
+				^self._use[\${path}/\${namespace}.\${type}]
 				^break[]
 			}(-f "\${path}/\${namespace}/\${name}.\${type}"){
 				^self._use[\${path}/\${namespace}/\${name}.\${type}]
@@ -413,11 +423,15 @@ $namespaces}[ \$.separator[:] ]]
 
 ^if(\$_namespaces){
 	^_namespaces.menu{
-		\$namespace[\$_namespaces.namespace]
+		\$namespace[^_namespaces.namespace.trim[]]
 		\$path[\${self.root}/\$_namespaces.path]
 
 		^if(!^MAIN:CLASS_PATH.locate[path;\$path]){
 			^MAIN:CLASS_PATH.append{\$path}
+		}
+		
+		^if(\$namespace eq ""){
+			\$namespace[*]
 		}
 
 		^self.namespaces.append{\$namespace	\$path}
