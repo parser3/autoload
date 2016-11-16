@@ -97,10 +97,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $rootDir = $this->filesystem->normalizePath(realpath(realpath(getcwd())));
 
         // Process {"autoload":{"files":[]}}
-        $files = $this->getAutoloadFiles($rootDir, $vendorDir);
+        $files = $this->getAutoloadFiles($vendorDir);
 
         // Process {"autoload":{"psr-0":[]}} and {"autoload":{"psr-4":[]}}
-        $namespaces = $this->getAutoloadNamespaces($rootDir, $vendorDir);
+        $namespaces = $this->getAutoloadNamespaces($vendorDir);
 
         // Get parser/autoload version
         $version = $this->getAutoloadVersion($vendorDir);
@@ -110,11 +110,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
 
     /**
-     * @param $rootDir
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadFiles($rootDir, $vendorDir)
+    private function getAutoloadFiles($vendorDir)
     {
         $result = "";
 
@@ -123,7 +122,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
             if (!empty($files)) {
                 foreach ($files as $hash => $path) {
-                    $result .= $this->parsePath($path, $rootDir) . "\n";
+                    $result .= $this->parsePath($path) . "\n";
                 }
             }
         }
@@ -133,11 +132,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
 
     /**
-     * @param $rootDir
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadNamespaces($rootDir, $vendorDir)
+    private function getAutoloadNamespaces($vendorDir)
     {
         $result = "";
 
@@ -155,7 +153,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
             foreach ($namespaces as $namespace => $paths) {
                 foreach ($paths as $path) {
                     if (!$this->isDumper($path)) {
-                        $result .= $this->parseNamespace($namespace) . ":" . $this->parsePath($path, $rootDir) . "\n";
+                        $result .= $this->parseNamespace($namespace) . "=" . $this->parsePath($path) . "\n";
                     }
                 }
             }
@@ -195,13 +193,9 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $rootDir
      * @return mixed
      */
-    private function parsePath($path, $rootDir)
+    private function parsePath($path)
     {
-        if (strpos($path.'/', $rootDir.'/') === 0) {
-            $path = substr($path, strlen($rootDir.'/'));
-        }
-
-        return $path;
+        return str_replace("\\", "/", $path);;
     }
 
 
@@ -212,6 +206,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     private function parseNamespace($namespace)
     {
         $namespace = trim($namespace, "\\");
+
+        if (empty($namespace)) {
+            $namespace = "*";
+        }
 
         return str_replace("\\", "/", $namespace);
     }
@@ -266,7 +264,7 @@ locals
 }
 
 # @{table} [_namespaces] Registred namespaces.
-\$self.namespaces[^table::create{namespace:path}[ $.separator[:] ]]
+\$self.namespaces[^table::create{name:path}[ $.separator[:] ]]
 
 # extend @MIAN:use[]
 \$self._use[\$MAIN:use]
@@ -302,15 +300,16 @@ locals
 		\$type[p]
 	}
 
-	^rem{** remove file name ***}
-	\$class[^class.trim[right;.\${type}]]
+	^rem{** remove file type ***}
+	\$class[^class.match[\$type][gi]{}]
 
 	^rem{*** find namespace ***}
 	\$found(false)
+	
+	\$namespace[\$class]
 
-	^if(^self.namespaces.locate[namespace;\$class]){
+	^if(^self.namespaces.locate[name;\$namespace]){
 		\$found(true)
-		\$namespace[\$class]
 	}{
 		\$_parts[^class.split[/;r]]
 
@@ -318,7 +317,7 @@ locals
 			\$piece[\${piece}/\${_parts.piece}]
 			\$namespace[^class.match[\$piece][gi]{}]
 
-			^if(^self.namespaces.locate[namespace;\$namespace]){
+			^if(^self.namespaces.locate[name;\$namespace]){
 				\$found(true)
 				^break[]
 			}
@@ -334,9 +333,9 @@ locals
 	}
 
 	^if(\$found){
-		\$paths[^self.namespaces.select(\$self.namespaces.namespace eq \$namespace)]
+		\$paths[^self.namespaces.select(\$self.namespaces.name eq \$namespace)]
 	}{
-		\$paths[^self.namespaces.select(\$self.namespaces.namespace eq "*")]
+		\$paths[^self.namespaces.select(\$self.namespaces.name eq "*")]
 	}
 	
 	^if(\$paths){
@@ -384,7 +383,8 @@ locals
 
 ^if(\$_includes){
 	^_includes.menu{
-		\$path[\${self.root}/\$_includes.path]
+		\$path[^self._normalizePath[^_includes.path.trim[]]]
+		\$path[/^self._relative[\$self.root;\$path]]
 		
 		^if(-f "\${path}"){
 			^self._use[\$path]
@@ -398,7 +398,9 @@ locals
 ^if(\$_namespaces){
 	^_namespaces.menu{
 		\$name[^_namespaces.name.trim[]]
-		\$path[\${self.root}/^_namespaces.path.trim[]]
+		
+		\$path[^self._normalizePath[^_namespaces.path.trim[]]]
+		\$path[/^self._relative[\$self.root;\$path]]
 
 		^if(!^MAIN:CLASS_PATH.locate[path;\$path]){
 			^MAIN:CLASS_PATH.append{\$path}
@@ -416,39 +418,131 @@ locals
 
 ###############################################################################
 @_getRoot[][locals]
-\$result[]
-
-\$root[$rootDir]
+\$result[$rootDir]
 
 # find \$_root
 ^if(def \$env:PWD){
-	\$root[^env:PWD.match[\$root][gi]{}]
+	\$result[\$env:PWD]
 }(def \$env:DOCUMENT_ROOT_VIRTUAL){
-	\$root[^env:DOCUMENT_ROOT_VIRTUAL.match[\$root][gi]{}]
+	\$result[\$env:DOCUMENT_ROOT_VIRTUAL]
 }(def \$env:DOCUMENT_ROOT){
-	\$root[^env:DOCUMENT_ROOT.match[\$root][gi]{}]
+	\$result[\$env:DOCUMENT_ROOT]
 }
 
-^if(def \$root && \$root ne ""){
-	\$root[^root.trim[both;/]]
-	\$root[^root.split[/;l]]
-
-	\$result[/^root.menu{..}[/]]
-}
+\$result[^self._normalizePath[\$result]]
 #end @_getRoot[]
+
+
+###############################################################################
+@_normalizePath[path][locals]
+\$result[\$path]
+
+^if(def \$result){
+	\$result[^result.split[:;rh]]
+	\$result[/^result.0.trim[both;\/]]
+}
+#end @_normalizePath[]
+
+
+###############################################################################
+@_relative[from;to][locals]
+\$result[]
+
+^if(\$from ne \$to){
+	^for[fromStart](1;^from.length[]){
+		^if(^from.mid(\$fromStart;1) ne "/"){
+			^break[]
+		}
+	}
+	\$fromEnd(^from.length[])
+	\$fromLen(\$fromEnd - \$fromStart)
+
+
+	^for[toStart](1;^to.length[]){
+		^if(^to.mid(\$toStart;1) ne "/"){
+			^break[]
+		}
+	}
+	\$toEnd(^to.length[])
+	\$toLen(\$toEnd - \$toStart)
+
+
+	\$length(^if(\$fromLen < \$toLen){\$fromLen}{\$toLen})
+	\$lastCommonSep(-1)
+
+	^for[i](0;\$length){
+		^if(\$i == \$length){
+			^if(\$toLen > \$length){
+				^if(^to.mid((\$toStart + \$i);1) eq "/"){
+					\$result[^to.mid((\$toStart + \$i + 1);^to.length[])]
+				}(\$i == 0){
+					\$result[^to.mid((\$toStart + \$i);^to.length[])]
+				}
+			}(\$fromLen > \$length){
+				^if(^from.mid((\$fromStart + \$i);1) eq "/"){
+					\$lastCommonSep(\$i)
+				}(\$i == 0){
+					\$lastCommonSep(0)
+				}
+			}
+
+			^break[]
+		}
+
+		\$fromCode[^from.mid((\$fromStart + \$i);1)]
+		\$toCode[^to.mid((\$toStart + \$i);1)]
+
+		^if(\$fromCode ne \$toCode){
+			^break[]
+		}(\$fromCode eq "/"){
+			\$lastCommonSep(\$i)
+		}
+	}
+
+	^if(!def \$result){
+		\$return[]
+		\$index(\$fromStart + \$lastCommonSep + 1)
+
+		^while(\$index <= \$fromEnd){
+			^if(\$index == \$fromEnd || ^from.mid(\$index;1) eq "/"){
+				^if(^return.length[] == 0){
+					\$return[..]
+				}{
+					\$return[\${return}/..]
+				}
+			}
+
+			^index.inc[]
+		}
+
+
+		^if(^return.length[] > 0){
+			\$result[\${return}^to.mid((\$toStart + \$lastCommonSep);^to.length[])]
+		}{
+			^toStart.inc(\$lastCommonSep)
+
+			^if(^to.mid(\$toStart;1) eq "/"){
+				^toStart.inc[]
+			}
+
+			\$result[^to.mid(\$toStart;^to.length[])]
+		}
+	}
+}
+#end @_relative[]
 
 
 ###############################################################################
 @_getIncludes[][locals]
 \$result[^table::create{path
-$files}[ \$.separator[:] ]]
+$files}]
 #end @_getIncludes[]
 
 
 ###############################################################################
 @_getNamespaces[][locals]
-\$result[^table::create{name:path
-$namespaces}[ \$.separator[:] ]]
+\$result[^table::create{name=path
+$namespaces}[ $.separator[=] ]]
 #end @_getNamespaces[]
 
 AUTOLOAD;
