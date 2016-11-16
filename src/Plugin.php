@@ -378,6 +378,43 @@ locals
 ###############################################################################
 # @PRIVATE
 ###############################################################################
+@_update[][locals]
+# process auto include files
+\$_includes[^self._getIncludes[]]
+
+^if(\$_includes){
+	^_includes.menu{
+		\$path[\${self.root}/\$_includes.path]
+		
+		^if(-f "\${path}"){
+			^self._use[\$path]
+		}
+	}
+}
+
+# process namespaces
+\$_namespaces[^self._getNamespaces[]]
+
+^if(\$_namespaces){
+	^_namespaces.menu{
+		\$name[^_namespaces.name.trim[]]
+		\$path[\${self.root}/^_namespaces.path.trim[]]
+
+		^if(!^MAIN:CLASS_PATH.locate[path;\$path]){
+			^MAIN:CLASS_PATH.append{\$path}
+		}
+		
+		^if(\$name eq ""){
+			\$name[*]
+		}
+
+		^self.namespaces.append{\$name	\$path}
+	}
+}
+#end @_update[]
+
+
+###############################################################################
 @_getRoot[][locals]
 \$result[]
 
@@ -402,42 +439,18 @@ locals
 
 
 ###############################################################################
-@_update[][locals]
-# process auto include files
-\$_includes[^table::create{path
+@_getIncludes[][locals]
+\$result[^table::create{path
 $files}[ \$.separator[:] ]]
+#end @_getIncludes[]
 
-^if(\$_includes){
-	^_includes.menu{
-		\$path[\${self.root}/\$_includes.path]
-		
-		^if(-f "\${path}"){
-			^self._use[\$path]
-		}
-	}
-}
 
-# process namespaces
-\$_namespaces[^table::create{namespace:path
+###############################################################################
+@_getNamespaces[][locals]
+\$result[^table::create{name:path
 $namespaces}[ \$.separator[:] ]]
+#end @_getNamespaces[]
 
-^if(\$_namespaces){
-	^_namespaces.menu{
-		\$namespace[^_namespaces.namespace.trim[]]
-		\$path[\${self.root}/\$_namespaces.path]
-
-		^if(!^MAIN:CLASS_PATH.locate[path;\$path]){
-			^MAIN:CLASS_PATH.append{\$path}
-		}
-		
-		^if(\$namespace eq ""){
-			\$namespace[*]
-		}
-
-		^self.namespaces.append{\$namespace	\$path}
-	}
-}
-#end @_update[]
 AUTOLOAD;
     }
 }
