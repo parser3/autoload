@@ -383,8 +383,12 @@ locals
 
 ^if(\$_includes){
 	^_includes.menu{
-		\$path[^self._normalizePath[^_includes.path.trim[]]]
-		\$path[/^self._relative[\$self.root;\$path]]
+		\$path[^self._normalizePath[\$_includes.path]]
+		\$path[^self._relative[\$self.root;\$path]]
+		
+		^if(^path.left(1) ne "/"){
+			\$path[/\$path]
+		}
 		
 		^if(-f "\${path}"){
 			^self._use[\$path]
@@ -399,8 +403,12 @@ locals
 	^_namespaces.menu{
 		\$name[^_namespaces.name.trim[]]
 		
-		\$path[^self._normalizePath[^_namespaces.path.trim[]]]
-		\$path[/^self._relative[\$self.root;\$path]]
+		\$path[^self._normalizePath[\$_namespaces.path]]
+		\$path[^self._relative[\$self.root;\$path]]
+		
+		^if(^path.left(1) ne "/"){
+			\$path[/\$path]
+		}
 
 		^if(!^MAIN:CLASS_PATH.locate[path;\$path]){
 			^MAIN:CLASS_PATH.append{\$path}
@@ -438,6 +446,7 @@ locals
 \$result[\$path]
 
 ^if(def \$result){
+	\$result[^result.trim[]]
 	\$result[^result.split[:;rh]]
 	\$result[/^result.0.trim[both;\/]]
 }
