@@ -296,12 +296,12 @@ locals
 	^rem{*** find file type ***}
 	\$type[^file:justext[\$class]]
 
-	^if(!def \$type){
+	^rem{** remove file type ***}
+	^if(def \$type){
+		\$class[^class.match[\.\$type][gi]{}]
+	}{
 		\$type[p]
 	}
-
-	^rem{** remove file type ***}
-	\$class[^class.match[\$type][gi]{}]
 
 	^rem{*** find namespace ***}
 	\$found(false)
