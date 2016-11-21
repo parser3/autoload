@@ -17,7 +17,7 @@ locals
 $self.root[/]
 
 # @{table} [files] Autoloaded files.
-$self.files[^table::create{hash:path:used}[
+$self.includes[^table::create{hash:path:used}[
 	$.separator[:]
 ]]
 
@@ -99,6 +99,7 @@ $prefix[^self._normalizePrefix[$prefix]]
 
 ^if($force || $prefix eq "*" || !^self.prefixes.locate[name;$prefix]){
 	$path[^self._toPosix[$path]]
+	$path[^self._resolve[$path]]
 	$path[^self._relative[$self.root;$path]]
 
 	^if(^path.left(1) ne "/"){
@@ -127,10 +128,11 @@ $prefix[^self._normalizePrefix[$prefix]]
 	$hash[^math:md5[$path]]
 }
 
-^if(!^self.files.locate[hash;$hash]){
+^if(!^self.includes.locate[hash;$hash]){
 	$used[false]
 
 	$path[^self._toPosix[$path]]
+	$path[^self._resolve[$path]]
 	$path[^self._relative[$self.root;$path]]
 
 	^if(^path.left(1) ne "/"){
@@ -142,7 +144,7 @@ $prefix[^self._normalizePrefix[$prefix]]
 		$used[true]
 	}
 
-	^self.files.append[
+	^self.includes.append[
 		$.hash[$hash]
 		$.path[$path]
 		$.used[$used]
@@ -182,10 +184,10 @@ $self._autouse[$MAIN:autouse]
 	^^MAIN:AUTOLOAD.autouse[^$path^]
 }
 
-# process autoload files
-^if(def $params.files && $params.files is table){
-	^params.files.menu{
-		^self.include[$params.files.path;$params.files.hash]
+# process includes files
+^if(def $params.includes && $params.includes is table){
+	^params.includes.menu{
+		^self.include[$params.includes.path;$params.includes.hash]
 	}
 }
 
@@ -266,14 +268,13 @@ $result[$prefix]
 
 ###############################################################################
 @_toPosix[path][locals]
-$result[$path]
+$result[^path.trim[]]
 
 ^if(def $result){
-	$result[^result.trim[]]
+	$length(^result.length[])
 
-	^if(^result.length[] > 2 && ^result.mid(1;1) eq ":" && (^result.mid(2;1) eq "/" || ^result.mid(2;1) eq "\")){
-		$result[^result.split[:;rh]]
-		$result[$result.0]
+	^if($length > 2 && ^result.mid(1;1) eq ":" && (^result.mid(2;1) eq "/" || ^result.mid(2;1) eq "\")){
+		$result[^result.mid(2;$length - 1)]
 	}
 }
 #end @_toPosix[]
@@ -301,8 +302,6 @@ $result[$class]
 ###############################################################################
 @_relative[from;to][locals]
 $result[]
-
-$to[^self._resolve[$from;$to]]
 
 ^if($from ne $to){
 	^for[fromStart](1;^from.length[]){

@@ -98,7 +98,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $rootDir = $this->filesystem->normalizePath(realpath(realpath(getcwd())));
 
         // Get autoload files
-        $files = $this->getAutoloadFiles($vendorDir);
+        $includes = $this->getAutoloadIncludes($vendorDir);
 
         // Get autoload prefixes
         $prefixes = $this->getAutoloadPrefixes($vendorDir);
@@ -106,7 +106,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         // Get parser/autoload version
         $version = $this->getAutoloadVersion($vendorDir);
 
-        return $this->generateParserClass($files, $prefixes, $version, $rootDir);
+        return $this->generateParserClass($includes, $prefixes, $version, $rootDir);
     }
 
 
@@ -114,15 +114,15 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadFiles($vendorDir)
+    private function getAutoloadIncludes($vendorDir)
     {
         if (file_exists($vendorDir . '/composer/autoload_files.php')) {
-            $files = require $vendorDir . '/composer/autoload_files.php';
+            $includes = require $vendorDir . '/composer/autoload_files.php';
 
-            if (!empty($files)) {
+            if (!empty($includes)) {
                 $result = "\n";
 
-                foreach ($files as $hash => $path) {
+                foreach ($includes as $hash => $path) {
                     $result .= $hash ."|". $this->parsePath($path) . "\n";
                 }
 
@@ -231,7 +231,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
 
 
-    private function generateParserClass($files, $prefixes, $version, $rootDir)
+    private function generateParserClass($includes, $prefixes, $version, $rootDir)
     {
         return <<<AUTOLOAD
 ###############################################################################
@@ -239,13 +239,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 ###############################################################################
 # \$ID: autoload.p, v$version, Leonid 'n3o' Knyazev $
 ###############################################################################
-@USE
-parser/autoload/src/Autoload.p
-
-
-###############################################################################
 @auto[][locals]
-\$files[^table::create{hash|path$files}[
+\$includes[^table::create{hash|path$includes}[
 	$.separator[|]
 ]]
 
@@ -253,11 +248,22 @@ parser/autoload/src/Autoload.p
 	$.separator[|]
 ]]
 
-\$MAIN:AUTOLOAD[^Parser/Autoload::create[
-	\$.root[$rootDir]
-	\$.files[\$files]
-	\$.prefixes[\$prefixes]
-]]
+^try{
+	^use[parser/autoload/src/Autoload.p]
+
+	\$MAIN:AUTOLOAD[^Parser/Autoload::create[
+		\$.root[$rootDir]
+		\$.includes[\$includes]
+		\$.prefixes[\$prefixes]
+	]]
+}{
+	\$exception.handled(true)
+	
+	\$MAIN:AUTOLOAD[^hash::create[
+		\$.includes[\$includes]
+		\$.prefixes[\$prefixes]
+	]]
+}
 #end @auto[]
 
 AUTOLOAD;
