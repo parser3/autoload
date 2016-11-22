@@ -4,15 +4,14 @@ Composer plugin for Parser3 autoload dump.
 
 ---
 
-## Documentation
+## Installation
 
-Coming soon...
+```bash
+$ composer require parser/autoload
+```
 
 ---
 
 ## References
 
-- Questions to Leonid Knyazev <leonid@knyazev.me> | <n3o@design.ru>
-- Bug reports and Feature requests to Issues.
-
----
+- Bugs and feature request are tracked on [GitHub](https://github.com/parser3/autoload/issues)
