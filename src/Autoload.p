@@ -47,9 +47,7 @@ $class[^class.trim[]]
 	$name[^self._findName[$class]]
 	$type[^self._findType[$class]]
 
-	$path[${path}/${name}]
-
-	$prefix[^self._findPrefix[$path]]
+	$prefix[^self._findPrefix[$class]]
 
 	^if(def $prefix){
 		$path[^path.match[$prefix.name][gi]{}]
@@ -248,18 +246,21 @@ $path[^path.trim[both;\/.]]
 
 ^if(^self.prefixes.locate[name;$path]){
 	$prefix[^self.prefixes.select($self.prefixes.name eq $path)]
-}{
+}($path ne "*"){
 	$_parts[^path.split[/;r]]
 
 	^_parts.menu{
-		$_piece[${_piece}/${_parts.piece}]
+		$_piece[${_parts.piece}^if(def $_piece){/$_piece}]
 		$_prefix[^path.match[$_piece][gi]{}]
+		$_prefix[^_prefix.trim[both;/]]
 
 		^if(^self.prefixes.locate[name;$_prefix]){
 			$prefix[^self.prefixes.select($self.prefixes.name eq $_prefix)]
 			^break[]
 		}
 	}
+}{
+	$prefix[^table::create{path}]
 }
 
 $result[$prefix]
