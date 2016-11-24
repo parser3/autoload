@@ -32,43 +32,64 @@ $self.prefixes[^table::create{name:path}[
 
 ###############################################################################
 @use[class;params][locals]
-$params[^hash::create[$params]]
 
 $class[^class.trim[]]
+$params[^hash::create[$params]]
 
 ^try{
 	^self._use[$class;$params]
 }{
 	$exception.handled(true)
 
-	$class[^self._normalizeClass[$class]]
+	^rem{ *** @{hash} with class definition *** }
+	$class[^self._parseClass[$class]]
 
-	$path[^self._findPath[$class]]
-	$name[^self._findName[$class]]
-	$type[^self._findType[$class]]
+	^rem{ *** @{string} full path to file *** }
+	$path[^if(def $class.path){${class.path}/}${class.name}]
 
-	$prefix[^self._findPrefix[$class]]
-
-	^if(def $prefix){
-		$path[^path.match[$prefix.name][gi]{}]
-		$path[^path.trim[both;/]]
+	^if(-f "${path}.${class.type}"){
+		^self._use[${path}.${class.type};$params]
+		$class.loaded(true)
 	}{
-		$prefix[^self._findPrefix[*]]
+		^rem{ *** Otherwise, we must try to find file manual *** }
+		^if(def $class.prefix){
+			$path[^path.replace[$class.prefix;]]
+			$path[^path.trim[left;/]]
+
+			^if(!def $path){
+				$path[$class.name]
+			}
+
+			$prefixes[^self.prefixes.select($self.prefixes.name eq $class.prefix)]
+		}{
+			$prefixes[^self.prefixes.select($self.prefixes.name eq "*")]
+		}
+
+		^prefixes.menu{
+			^if(!$class.loaded){
+				^if(-f "${prefixes.path}/${path}.${class.type}"){
+					^self._use[${prefixes.path}/${path}.${class.type};$params]
+					$class.loaded(true)
+				}($prefixes.name ne "*" && -f "${prefixes.path}/${prefixes.name}/${path}.${class.type}"){
+					^self._use[${prefixes.path}/${prefixes.name}/${path}.${class.type};$params]
+					$class.loaded(true)
+				}
+			}
+		}
 	}
 
-	^prefix.menu{
-		^if(-f "${prefix.path}/${name}.${type}"){
-			^self._use[${prefix.path}/${name}.${type}][$params]
-			^break[]
-		}(-f "${prefix.path}/${path}/${name}.${type}"){
-			^self._use[${prefix.path}/${path}/${name}.${type}][$params]
-			^break[]
-		}($prefix.name ne "*" && -f "${prefix.path}/${prefix.name}/${name}.${type}"){
-			^self._use[${prefix.path}/${prefix.name}/${name}.${type}][$params]
-			^break[]
-		}($prefix.name ne "*" && -f "${prefix.path}/${prefix.name}/${path}/${name}.${type}"){
-			^self._use[${prefix.path}/${prefix.name}/${path}/${name}.${type}][$params]
-			^break[]
+	^rem{ *** process class alias, if needed *** }
+	^if(def $class.alias && def $class.class && $class.loaded){
+		$exist(false)
+
+		^try{
+			$exist(def ^reflection:class_by_name[$class.alias])
+		}{
+			$exception.handled(true)
+		}
+
+		^if(!$exist){
+			^process[$MAIN:CLASS]{@CLASS^#0A${class.alias}^#0A^#0A@BASE^#0A${class.class}^#0A}
 		}
 	}
 }
@@ -219,55 +240,6 @@ $result[^self._toPosix[$result]]
 
 
 ###############################################################################
-@_findPath[class][locals]
-$result[^file:dirname[$class]]
-#end @_findPath[]
-
-
-###############################################################################
-@_findName[class][locals]
-$result[^file:justname[$class]]
-#end @_findName[]
-
-
-###############################################################################
-@_findType[class][locals]
-$result[^file:justext[$class]]
-
-^if(!def $result){
-	$result[p]
-}
-#end @_findType[]
-
-
-###############################################################################
-@_findPrefix[path][locals]
-$path[^path.trim[both;\/.]]
-
-^if(^self.prefixes.locate[name;$path]){
-	$prefix[^self.prefixes.select($self.prefixes.name eq $path)]
-}($path ne "*"){
-	$_parts[^path.split[/;r]]
-
-	^_parts.menu{
-		$_piece[${_parts.piece}^if(def $_piece){/$_piece}]
-		$_prefix[^path.match[$_piece][gi]{}]
-		$_prefix[^_prefix.trim[both;/]]
-
-		^if(^self.prefixes.locate[name;$_prefix]){
-			$prefix[^self.prefixes.select($self.prefixes.name eq $_prefix)]
-			^break[]
-		}
-	}
-}{
-	$prefix[^table::create{path}]
-}
-
-$result[$prefix]
-#end @_findPrefix[]
-
-
-###############################################################################
 @_toPosix[path][locals]
 $result[^path.trim[]]
 
@@ -290,14 +262,113 @@ $result[^result.trim[both;\/.]]
 
 
 ###############################################################################
-@_normalizeClass[class][locals]
-$result[$class]
+@_parseClass[class]
+# origin class request
+$request[$class]
 
-^if(def $result){
-	$result[^result.replace[_;/]]
-	$result[^result.trim[both;\/]]
+# check alias for class
+^if(^request.pos[ AS ] != -1){
+	$class[^request.split[ AS ;lh]]
+
+	$alias[^class.1.trim[]]
+	$class[^class.0.trim[]]
+}
+
+# normalize slashes and underscores
+$class[^self._normalizeClass[$class]]
+
+# find prefix
+$prefix[^self._findPrefix[$class.path;$class.name]]
+
+$result[^hash::create[
+	$.request[$request]
+
+	$.class[$class.class]
+	$.path[$class.path]
+	$.name[$class.name]
+	$.type[$class.type]
+
+	$.alias[$alias]
+	$.prefix[$prefix]
+	$.loaded(false)
+]]
+#end @_parseClass[]
+
+
+###############################################################################
+@_normalizeClass[class][locals]
+$result[^hash::create[
+	$.class[]
+	$.path[]
+	$.name[]
+	$.type[]
+]]
+
+^if(def $class){
+	$type[^file:justext[$class]]
+
+	^if(!def $type){
+		$type[p]
+	}
+
+	$path[^file:dirname[$class]]
+
+	^if($path eq "."){
+		$path[]
+	}
+
+	$name[^file:justname[$class]]
+
+	^if(^name.pos[_] != -1){
+		$class[$name]
+
+		$name[^name.replace[_;/]]
+		$name[^name.trim[both;\/]]
+	}{
+		$class[^if(def $path){${path}/}${name}]
+	}
+
+	^if(^class.left(1) eq "/"){
+		$class[]
+	}
+
+	$result[
+		$.class[$class]
+		$.path[$path]
+		$.name[$name]
+		$.type[$type]
+	]
 }
 #end @_normalizeClass[]
+
+
+###############################################################################
+@_findPrefix[path;name][locals]
+$class[^if(def $path){${path}/}${name}]
+
+^if(^self.prefixes.locate[name;$class]){
+	$prefix[$class]
+}{
+	$_parts[^class.split[/;r]]
+
+	^_parts.menu{
+		$_piece[${_parts.piece}^if(def $_piece){/$_piece}]
+
+		$_prefix[^class.match[$_piece][gi]{}]
+		$_prefix[^_prefix.trim[both;/]]
+
+		^if(^self.prefixes.locate[name;$_prefix]){
+			$prefix[$_prefix]
+			^break[]
+		}
+	}
+}
+
+$result[$prefix]
+#end @_findPrefix[]
+
+
+
 
 
 ###############################################################################
