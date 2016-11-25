@@ -70,6 +70,9 @@ $params[^hash::create[$params]]
 				^if(-f "${prefixes.path}/${path}.${class.type}"){
 					^self._use[${prefixes.path}/${path}.${class.type};$params]
 					$class.loaded(true)
+				}(-f "${prefix.path}/${path}/${path}.${type}"){
+					^self._use[${prefix.path}/${path}/${path}.${type}][$params]
+					^break[]
 				}($prefixes.name ne "*" && -f "${prefixes.path}/${prefixes.name}/${path}.${class.type}"){
 					^self._use[${prefixes.path}/${prefixes.name}/${path}.${class.type};$params]
 					$class.loaded(true)
