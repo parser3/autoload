@@ -248,22 +248,13 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 	$.separator[|]
 ]]
 
-^try{
-	^use[parser/autoload/src/Autoload.p]
+^use[parser/autoload/src/Autoload.p]
 
-	\$MAIN:AUTOLOAD[^Parser/Autoload::create[
-		\$.root[$rootDir]
-		\$.includes[\$includes]
-		\$.prefixes[\$prefixes]
-	]]
-}{
-	\$exception.handled(true)
-	
-	\$MAIN:AUTOLOAD[^hash::create[
-		\$.includes[\$includes]
-		\$.prefixes[\$prefixes]
-	]]
-}
+\$MAIN:AUTOLOAD[^Parser/Autoload::create[
+	\$.root[$rootDir]
+	\$.includes[\$includes]
+	\$.prefixes[\$prefixes]
+]]
 #end @auto[]
 
 AUTOLOAD;

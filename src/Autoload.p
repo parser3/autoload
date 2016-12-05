@@ -26,39 +26,29 @@ $self.prefixes[^table::create{name:path}[
 	$.separator[:]
 ]]
 
+# @{hash} [$_processed] Processed files.
+$self._processed[^hash::create[]]
+
 ^self._configure[$params]
 #end @create[]
 
 
 ###############################################################################
 @use[class;params][locals]
-
 $class[^class.trim[]]
 $params[^hash::create[$params]]
 
-^try{
-	^self._use[$class;$params]
-}{
-	$exception.handled(true)
-
-	^rem{ *** @{hash} with class definition *** }
+^if(!^self._processed.contains[$class]){
 	$class[^self._parseClass[$class]]
+	$self._processed.[$class.request][$class]
 
-	^rem{ *** @{string} full path to file *** }
-	$path[^if(def $class.path){${class.path}/}${class.name}]
-
-	^if(-f "${path}.${class.type}"){
-		^self._use[${path}.${class.type};$params]
-		$class.loaded(true)
+	$found[]
+	^if(-f "^if(def $class.path){${class.path}/}${class.name}.${class.type}"){
+		$found[^if(def $class.path){${class.path}/}${class.name}.${class.type}]
 	}{
-		^rem{ *** Otherwise, we must try to find file manual *** }
 		^if(def $class.prefix){
-			$path[^path.replace[$class.prefix;]]
-			$path[^path.trim[left;/]]
-
-			^if(!def $path){
-				$path[$class.name]
-			}
+			$class.path[^class.path.replace[$class.prefix;]]
+			$class.path[^class.path.trim[left;/]]
 
 			$prefixes[^self.prefixes.select($self.prefixes.name eq $class.prefix)]
 		}{
@@ -66,33 +56,44 @@ $params[^hash::create[$params]]
 		}
 
 		^prefixes.menu{
-			^if(!$class.loaded){
-				^if(-f "${prefixes.path}/${path}.${class.type}"){
-					^self._use[${prefixes.path}/${path}.${class.type};$params]
-					$class.loaded(true)
-				}(-f "${prefixes.path}/${path}/${path}.${class.type}"){
-					^self._use[${prefixes.path}/${path}/${path}.${class.type}][$params]
-					^break[]
-				}($prefixes.name ne "*" && -f "${prefixes.path}/${prefixes.name}/${path}.${class.type}"){
-					^self._use[${prefixes.path}/${prefixes.name}/${path}.${class.type};$params]
-					$class.loaded(true)
-				}
+			^if(-f "${prefixes.path}/^if(def $class.path){${class.path}/}${class.name}/${class.name}.${class.type}"){
+				$found[${prefixes.path}/^if(def $class.path){${class.path}/}${class.name}/${class.name}.${class.type}]
+				^break[]
+			}(-f "${prefixes.path}/^if(def $class.path){${class.path}/}${class.name}.${class.type}"){
+				$found[${prefixes.path}/^if(def $class.path){${class.path}/}${class.name}.${class.type}]
+				^break[]
+			}(-f "${prefixes.path}/${class.name}/${class.name}.${class.type}"){
+				$found[${prefixes.path}/${class.name}/${class.name}.${class.type}]
+				^break[]
+			}(-f "${prefixes.path}/${class.name}.${class.type}"){
+				$found[${prefixes.path}/${class.name}.${class.type}]
+				^break[]
 			}
 		}
 	}
 
-	^rem{ *** process class alias, if needed *** }
-	^if(def $class.alias && def $class.class && $class.loaded){
-		$exist(false)
+	^if(def $found){
+		^rem{ *** use founded file *** }
+		^self._use[$found;$params]
 
-		^try{
-			$exist(def ^reflection:class_by_name[$class.alias])
-		}{
-			$exception.handled(true)
-		}
+		^rem{ *** mark as loaded *** }
+		^self._processed.[$class.request].add[
+			$.loaded(true)
+		]
 
-		^if(!$exist){
-			^process[$MAIN:CLASS]{@CLASS^#0A${class.alias}^#0A^#0A@BASE^#0A${class.class}^#0A}
+		^rem{ *** process class alias, if needed *** }
+		^if(def $class.alias && def $class.class){
+			$exist(false)
+
+			^try{
+				$exist(def ^reflection:class_by_name[$class.alias])
+			}{
+				$exception.handled(true)
+			}
+
+			^if(!$exist){
+				^process[$MAIN:CLASS]{@CLASS^#0A${class.alias}^#0A^#0A@BASE^#0A${class.class}^#0A}
+			}
 		}
 	}
 }
@@ -102,13 +103,10 @@ $params[^hash::create[$params]]
 ###############################################################################
 @autouse[path]
 ^try{
-	^self.use[$path]
+	^self._autouse[$path]
 }{
 	$exception.handled(true)
-
-	^if($self._autouse is junction){
-		^self._autouse[$path]
-	}
+	^self.use[$path]
 }
 #end @autouse[]
 
