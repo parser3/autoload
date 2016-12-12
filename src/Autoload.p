@@ -82,12 +82,8 @@ $params[^hash::create[$params]]
 		]
 
 		^rem{ *** process class alias, if needed *** }
-		^if(def $class.alias && def $class.class){
-			$exist(^reflection:def[class;$class.alias])
-
-			^if(!$exist){
-				^process[$MAIN:CLASS]{@CLASS^#0A${class.alias}^#0A^#0A@BASE^#0A${class.class}^#0A}
-			}
+		^if(def $class.alias && def $class.class && !^reflection:def[class;$class.alias]){
+			^process[$MAIN:CLASS]{@CLASS^#0A${class.alias}^#0A^#0A@BASE^#0A${class.class}^#0A}
 		}
 	}
 }
