@@ -367,81 +367,86 @@ $result[$prefix]
 $result[]
 
 ^if($from ne $to){
-	^for[fromStart](1;^from.length[]){
-		^if(^from.mid($fromStart;1) ne "/"){
-			^break[]
+	$from[^self._resolve[$from]]
+	$to[^self._resolve[$to]]
+
+	^if($from ne $to){
+		^for[fromStart](1;^from.length[]){
+			^if(^from.mid($fromStart;1) ne "/"){
+				^break[]
+			}
 		}
-	}
-	$fromEnd(^from.length[])
-	$fromLen($fromEnd - $fromStart)
+		$fromEnd(^from.length[])
+		$fromLen($fromEnd - $fromStart)
 
-	^for[toStart](1;^to.length[]){
-		^if(^to.mid($toStart;1) ne "/"){
-			^break[]
+		^for[toStart](1;^to.length[]){
+			^if(^to.mid($toStart;1) ne "/"){
+				^break[]
+			}
 		}
-	}
-	$toEnd(^to.length[])
-	$toLen($toEnd - $toStart)
+		$toEnd(^to.length[])
+		$toLen($toEnd - $toStart)
 
-	$length(^if($fromLen < $toLen){$fromLen}{$toLen})
-	$lastCommonSep(-1)
+		$length(^if($fromLen < $toLen){$fromLen}{$toLen})
+		$lastCommonSep(-1)
 
-	^for[i](0;$length){
-		^if($i == $length){
-			^if($toLen > $length){
-				^if(^to.mid(($toStart + $i);1) eq "/"){
-					$result[^to.mid(($toStart + $i + 1);^to.length[])]
-				}($i == 0){
-					$result[^to.mid(($toStart + $i);^to.length[])]
+		^for[i](0;$length){
+			^if($i == $length){
+				^if($toLen > $length){
+					^if(^to.mid(($toStart + $i);1) eq "/"){
+						$result[^to.mid(($toStart + $i + 1);^to.length[])]
+					}($i == 0){
+						$result[^to.mid(($toStart + $i);^to.length[])]
+					}
+				}($fromLen > $length){
+					^if(^from.mid(($fromStart + $i);1) eq "/"){
+						$lastCommonSep($i)
+					}($i == 0){
+						$lastCommonSep(0)
+					}
 				}
-			}($fromLen > $length){
-				^if(^from.mid(($fromStart + $i);1) eq "/"){
-					$lastCommonSep($i)
-				}($i == 0){
-					$lastCommonSep(0)
-				}
+
+				^break[]
 			}
 
-			^break[]
+			$fromCode[^from.mid(($fromStart + $i);1)]
+			$toCode[^to.mid(($toStart + $i);1)]
+
+			^if($fromCode ne $toCode){
+				^break[]
+			}($fromCode eq "/"){
+				$lastCommonSep($i)
+			}
 		}
 
-		$fromCode[^from.mid(($fromStart + $i);1)]
-		$toCode[^to.mid(($toStart + $i);1)]
+		^if(!def $result){
+			$return[]
+			$index($fromStart + $lastCommonSep + 1)
 
-		^if($fromCode ne $toCode){
-			^break[]
-		}($fromCode eq "/"){
-			$lastCommonSep($i)
-		}
-	}
-
-	^if(!def $result){
-		$return[]
-		$index($fromStart + $lastCommonSep + 1)
-
-		^while($index <= $fromEnd){
-			^if($index == $fromEnd || ^from.mid($index;1) eq "/"){
-				^if(^return.length[] == 0){
-					$return[..]
-				}{
-					$return[${return}/..]
+			^while($index <= $fromEnd){
+				^if($index == $fromEnd || ^from.mid($index;1) eq "/"){
+					^if(^return.length[] == 0){
+						$return[..]
+					}{
+						$return[${return}/..]
+					}
 				}
+
+				^index.inc[]
 			}
 
-			^index.inc[]
-		}
 
+			^if(^return.length[] > 0){
+				$result[${return}^to.mid(($toStart + $lastCommonSep);^to.length[])]
+			}{
+				^toStart.inc($lastCommonSep)
 
-		^if(^return.length[] > 0){
-			$result[${return}^to.mid(($toStart + $lastCommonSep);^to.length[])]
-		}{
-			^toStart.inc($lastCommonSep)
+				^if(^to.mid($toStart;1) eq "/"){
+					^toStart.inc[]
+				}
 
-			^if(^to.mid($toStart;1) eq "/"){
-				^toStart.inc[]
+				$result[^to.mid($toStart;^to.length[])]
 			}
-
-			$result[^to.mid($toStart;^to.length[])]
 		}
 	}
 }
