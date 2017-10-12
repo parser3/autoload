@@ -1,7 +1,7 @@
 {
     "name": "parser/autoload",
     "type": "composer-plugin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Composer plugin for Parser3 autoload dump.",
     "keywords": ["parser3", "composer", "autoload", "plugin"],
     "homepage": "https://github.com/parser3/autoload",

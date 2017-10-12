@@ -41,6 +41,16 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     protected $filesystem;
 
+    /**
+     * @var String $rootDir
+     */
+    protected $rootDir;
+
+    /**
+     * @var String $vendorDir
+     */
+    protected $vendorDir;
+
 
 
     /**
@@ -52,6 +62,12 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $this->io = $io;
         $this->composer = $composer;
         $this->filesystem = new Filesystem();
+        
+        // Project root directory.
+        $this->rootDir = $this->filesystem->normalizePath(realpath(realpath(getcwd())));
+        
+        // Project vendor directory.
+        $this->vendorDir = $this->filesystem->normalizePath(realpath(realpath($this->composer->getConfig()->get('vendor-dir'))));
     }
 
 
@@ -73,15 +89,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     public function onPostAutoloadDump()
     {
-        // Project vendor directory.
-        $vendorDir = $this->composer->getConfig()->get('vendor-dir');
-        $vendorDir = $this->filesystem->normalizePath(realpath(realpath($vendorDir)));
-
         // autoload.p
-        $autoload = $this->getAutoload($vendorDir);
+        $autoload = $this->getAutoload();
 
         if (!empty($autoload)) {
-            file_put_contents($vendorDir.'/autoload.p', $autoload);
+            file_put_contents($this->vendorDir.'/autoload.p', $autoload);
 
             $this->io->writeError('<info>Generating autoload completed</info>');
         }
@@ -92,21 +104,18 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $vendorDir
      * @return string
      */
-    private function getAutoload($vendorDir)
+    private function getAutoload()
     {
-        // Project root directory.
-        $rootDir = $this->filesystem->normalizePath(realpath(realpath(getcwd())));
-
         // Get autoload files
-        $includes = $this->getAutoloadIncludes($vendorDir);
+        $includes = $this->getAutoloadIncludes();
 
         // Get autoload prefixes
-        $prefixes = $this->getAutoloadPrefixes($vendorDir);
+        $prefixes = $this->getAutoloadPrefixes();
 
         // Get parser/autoload version
-        $version = $this->getAutoloadVersion($vendorDir);
+        $version = $this->getAutoloadVersion();
 
-        return $this->generateParserClass($includes, $prefixes, $version, $rootDir);
+        return $this->generateParserClass($includes, $prefixes, $version);
     }
 
 
@@ -114,10 +123,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadIncludes($vendorDir)
+    private function getAutoloadIncludes()
     {
-        if (file_exists($vendorDir . '/composer/autoload_files.php')) {
-            $includes = require $vendorDir . '/composer/autoload_files.php';
+        if (file_exists($this->vendorDir . '/composer/autoload_files.php')) {
+            $includes = require $this->vendorDir . '/composer/autoload_files.php';
 
             if (!empty($includes)) {
                 $result = "\n";
@@ -138,16 +147,16 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadPrefixes($vendorDir)
+    private function getAutoloadPrefixes()
     {
         $prefixes = array();
 
-        if (file_exists($vendorDir . '/composer/autoload_namespaces.php')) {
-            $prefixes = array_merge($prefixes, require $vendorDir . '/composer/autoload_namespaces.php');
+        if (file_exists($this->vendorDir . '/composer/autoload_namespaces.php')) {
+            $prefixes = array_merge($prefixes, require $this->vendorDir . '/composer/autoload_namespaces.php');
         }
 
-        if (file_exists($vendorDir . '/composer/autoload_psr4.php')) {
-            $prefixes = array_merge($prefixes, require $vendorDir . '/composer/autoload_psr4.php');
+        if (file_exists($this->vendorDir . '/composer/autoload_psr4.php')) {
+            $prefixes = array_merge($prefixes, require $this->vendorDir . '/composer/autoload_psr4.php');
         }
 
         if (!empty($prefixes)) {
@@ -172,11 +181,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      * @param $vendorDir
      * @return string
      */
-    private function getAutoloadVersion($vendorDir)
+    private function getAutoloadVersion()
     {
         $version = "1.0.0";
 
-        $path = $vendorDir .DIRECTORY_SEPARATOR. self::PACKAGE_NAME .DIRECTORY_SEPARATOR. "composer.json";
+        $path = $this->vendorDir .DIRECTORY_SEPARATOR. self::PACKAGE_NAME .DIRECTORY_SEPARATOR. "composer.json";
 
         if (file_exists($path)) {
             $file = new JsonFile($path);
@@ -199,7 +208,14 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private function parsePath($path)
     {
-        return str_replace("\\", "/", $path);
+        $path = str_replace($this->vendorDir, '\${MAIN:AUTOLOAD.vendor}', $path);
+        $path = str_replace($this->rootDir, '\${MAIN:AUTOLOAD.project}', $path);
+        
+        $path = str_replace("\\", "/", $path);
+        
+        $path = trim($path, "/");
+
+        return $path;
     }
 
 
@@ -231,7 +247,7 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
 
 
-    private function generateParserClass($includes, $prefixes, $version, $rootDir)
+    private function generateParserClass($includes, $prefixes, $version)
     {
         return <<<AUTOLOAD
 ###############################################################################
@@ -239,21 +255,19 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 ###############################################################################
 # \$ID: autoload.p, v$version, Leonid 'n3o' Knyazev $
 ###############################################################################
-@auto[][locals]
-\$includes[^table::create{hash|path$includes}[
-	$.separator[|]
-]]
-
-\$prefixes[^table::create{name|path$prefixes}[
-	$.separator[|]
-]]
-
+@auto[vendor][locals]
 ^use[parser/autoload/src/Autoload.p]
 
 \$MAIN:AUTOLOAD[^Parser/Autoload::create[
-	\$.root[$rootDir]
-	\$.includes[\$includes]
-	\$.prefixes[\$prefixes]
+	$.vendor[^file:dirname[\$vendor]]
+]]
+
+^MAIN:AUTOLOAD.include[^table::create{hash|path$includes}[
+	$.separator[|]
+]]
+
+^MAIN:AUTOLOAD.register[^table::create{name|path$prefixes}[
+	$.separator[|]
 ]]
 #end @auto[]
 

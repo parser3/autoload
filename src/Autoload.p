@@ -10,11 +10,17 @@ locals
 
 
 ###############################################################################
-# @PUBLIC
+# @CONSTRUCTOR
 ###############################################################################
 @create[params][locals]
-# @{string} [root] Document root.
-$self.root[/]
+# @{string} [root] Root dir.
+$self.root[]
+
+# @{string} [vendor] Project vendor dir.
+$self.vendor[]
+
+# @{string} [project] Project root dir.
+$self.project[]
 
 # @{table} [files] Autoloaded files.
 $self.includes[^table::create{hash:path:used}[
@@ -33,6 +39,9 @@ $self._processed[^hash::create[]]
 #end @create[]
 
 
+
+###############################################################################
+# @PUBLIC
 ###############################################################################
 @use[class;params][locals]
 $class[^class.trim[]]
@@ -102,65 +111,73 @@ $params[^hash::create[$params]]
 
 
 ###############################################################################
-@register[prefix;path;force][locals]
-$force(^force.bool(false))
-
-$prefix[^self._normalizePrefix[$prefix]]
-
-^if($force || $prefix eq "*" || !^self.prefixes.locate[name;$prefix]){
-	$path[^self._toPosix[$path]]
-	$path[^self._resolve[$path]]
-	$path[^self._relative[$self.root;$path]]
-
-	^if(^path.left(1) ne "/"){
-		$path[/$path]
+@include[path;hash][locals]
+^if($path is table){
+	^path.menu{
+		^self.include[$path.path][$path.hash]
+	}
+}{
+	^if(!def $hash){
+		$hash[^math:md5[$path]]
 	}
 
-	^if(!^MAIN:CLASS_PATH.locate[path;$path]){
-		^MAIN:CLASS_PATH.append{$path}
-	}
+	^if(!^self.includes.locate[hash;$hash]){
+		$used[false]
 
-	^if($prefix eq ""){
-		$prefix[*]
-	}
+		$path[^self._normalizePath[^self._toPosix[$path]]]
 
-	^self.prefixes.append[
-		$.name[$prefix]
-		$.path[$path]
-	]
+		^if(^path.left(1) ne "/"){
+			$path[/${path}]
+		}
+
+		^if(-f "${path}"){
+			^self._use[$path]
+			$used[true]
+		}
+
+		^self.includes.append[
+			$.hash[$hash]
+			$.path[$path]
+			$.used[$used]
+		]
+	}
 }
-#end @register[]
+#end @include[]
 
 
 ###############################################################################
-@include[path;hash][locals]
-^if(!def $hash){
-	$hash[^math:md5[$path]]
-}
-
-^if(!^self.includes.locate[hash;$hash]){
-	$used[false]
-
-	$path[^self._toPosix[$path]]
-	$path[^self._resolve[$path]]
-	$path[^self._relative[$self.root;$path]]
-
-	^if(^path.left(1) ne "/"){
-		$path[/$path]
+@register[prefix;path;force][locals]
+^if($prefix is table){
+	^prefix.menu{
+		^self.register[$prefix.name][$prefix.path]
 	}
+}{
+	$force(^force.bool(false))
 
-	^if(-f "${path}"){
-		^self._use[$path]
-		$used[true]
+	$prefix[^self._normalizePrefix[$prefix]]
+
+	^if($force || $prefix eq "*" || !^self.prefixes.locate[name;$prefix]){
+		$path[^self._normalizePath[^self._toPosix[$path]]]
+
+		^if(^path.left(1) ne "/"){
+			$path[/${path}]
+		}
+
+		^if(!^MAIN:CLASS_PATH.locate[path;$path]){
+			^MAIN:CLASS_PATH.append{$path}
+		}
+
+		^if($prefix eq ""){
+			$prefix[*]
+		}
+
+		^self.prefixes.append[
+			$.name[$prefix]
+			$.path[$path]
+		]
 	}
-
-	^self.includes.append[
-		$.hash[$hash]
-		$.path[$path]
-		$.used[$used]
-	]
 }
-#end @include[]
+#end @register[]
 
 
 
@@ -170,8 +187,14 @@ $prefix[^self._normalizePrefix[$prefix]]
 @_configure[params][locals]
 $params[^hash::create[$params]]
 
-# find Document root.
+# find Root dir.
 $self.root[^self._findRoot[$params.root]]
+
+# find Project vendor dir.
+$self.vendor[^self._findVendor[$params.vendor]]
+
+# find Project root dir.
+$self.project[^self._findProject[$params.project]]
 
 # find $MAIN:CLASS_PATH
 ^if(!def $MAIN:CLASS_PATH){
@@ -193,41 +216,54 @@ $self._autouse[$MAIN:autouse]
 ^process[$MAIN:CLASS]{@autouse[path][locals]
 	^^MAIN:AUTOLOAD.autouse[^$path^]
 }
-
-# process includes files
-^if(def $params.includes && $params.includes is table){
-	^params.includes.menu{
-		^self.include[$params.includes.path;$params.includes.hash]
-	}
-}
-
-# process namespaces
-^if(def $params.prefixes && $params.prefixes is table){
-	^params.prefixes.menu{
-		^self.register[$params.prefixes.name;$params.prefixes.path]
-	}
-}
 #end @_configure[]
 
 
 ###############################################################################
-@_findRoot[root][locals]
-$result[$root]
+@_findRoot[path][locals]
+$result[$path]
 
 ^if(def $env:PWD){
-	$result[$env:PWD]
+	$result[^env:PWD.trim[right;/]]
 }(def $env:DOCUMENT_ROOT_VIRTUAL){
-	$result[$env:DOCUMENT_ROOT_VIRTUAL]
+	$result[^env:DOCUMENT_ROOT_VIRTUAL.trim[right;/]]
 }(def $env:DOCUMENT_ROOT){
-	$result[$env:DOCUMENT_ROOT]
+	$result[^env:DOCUMENT_ROOT.trim[right;/]]
 }
 
-$result[^self._toPosix[$result]]
-
-^if(^result.left(1) ne "/"){
-	$result[/$result]
-}
+$result[^self._normalizePath[^self._toPosix[$result]]]
 #end @_findRoot[]
+
+
+###############################################################################
+@_findVendor[path][locals]
+$result[$path]
+
+^if(def $result){
+	$result[^self._relativePath[$self.root][$result]]
+	$result[^self._normalizePath[^self._toPosix[$result]]]
+}
+#end @_findVendor[]
+
+
+###############################################################################
+@_findProject[path][locals]
+$result[$path]
+
+^if(!def $result){
+	$i(20)
+
+	^while($i && !-f "${result}/composer.json"){
+		$result[../${result}]
+		^i.dec[]
+	}
+}
+
+^if(def $result){
+	$result[^self._relativePath[$self.root][$result]]
+	$result[^self._normalizePath[^self._toPosix[$result]]]
+}
+#end @_findProject[]
 
 
 ###############################################################################
@@ -244,14 +280,9 @@ $result[^path.trim[]]
 #end @_toPosix[]
 
 
+
 ###############################################################################
-@_normalizePrefix[prefix][locals]
-$result[^prefix.replace[_;/]]
-$result[^result.replace[\;/]]
-$result[^result.trim[both;\/.]]
-#end @_normalizePrefix[]
-
-
+# @AUTOLOAD UTILS
 ###############################################################################
 @_parseClass[class]
 # origin class request
@@ -334,6 +365,14 @@ $result[^hash::create[
 
 
 ###############################################################################
+@_normalizePrefix[prefix][locals]
+$result[^prefix.replace[_;/]]
+$result[^result.replace[\;/]]
+$result[^result.trim[both;\/.]]
+#end @_normalizePrefix[]
+
+
+###############################################################################
 @_findPrefix[path;name][locals]
 $class[^if(def $path){${path}/}${name}]
 
@@ -360,15 +399,15 @@ $result[$prefix]
 
 
 
-
-
 ###############################################################################
-@_relative[from;to][locals]
+# @PATH UTILS
+###############################################################################
+@_relativePath[from;to][locals]
 $result[]
 
 ^if($from ne $to){
-	$from[^self._resolve[$from]]
-	$to[^self._resolve[$to]]
+	$from[^self._resolvePath[$from]]
+	$to[^self._resolvePath[$to]]
 
 	^if($from ne $to){
 		^for[fromStart](1;^from.length[]){
@@ -376,6 +415,7 @@ $result[]
 				^break[]
 			}
 		}
+
 		$fromEnd(^from.length[])
 		$fromLen($fromEnd - $fromStart)
 
@@ -384,6 +424,7 @@ $result[]
 				^break[]
 			}
 		}
+
 		$toEnd(^to.length[])
 		$toLen($toEnd - $toStart)
 
@@ -450,11 +491,11 @@ $result[]
 		}
 	}
 }
-#end @_relative[]
+#end @_relativePath[]
 
 
 ###############################################################################
-@_resolve[*paths]
+@_resolvePath[*paths]
 $result[]
 
 $paths[^hash::create[$paths]]
@@ -483,7 +524,7 @@ $isAbsolute(false)
 		}
 	}
 
-	$result[^self._normalize[$result;!$isAbsolute]]
+	$result[^self._normalizePath[$result;!$isAbsolute]]
 
 	^if($isAbsolute){
 		^if(^result.length[] > 0){
@@ -499,11 +540,11 @@ $isAbsolute(false)
 }{
 	$result[$self.root]
 }
-#end @_resolve[]
+#end @_resolvePath[]
 
 
 ###############################################################################
-@_normalize[path;isAbsolute]
+@_normalizePath[path;isAbsolute]
 $result[]
 
 $isAbsolute(^isAbsolute.bool(^self._isAbsolute[$path]))
@@ -542,7 +583,11 @@ $paths[^table::create{path}]
 }
 
 $result[^paths.menu{$paths.path}[/]]
-#end @_normalize[]
+
+^if($isAbsolute && ^resul.left(1) ne "/"){
+	$result[/${result}]
+}
+#end @_normalizePath[]
 
 
 ###############################################################################
