@@ -16,11 +16,8 @@ locals
 # @{string} [root] Root dir.
 $self.root[]
 
-# @{string} [vendor] Project vendor dir.
-$self.vendor[]
-
-# @{string} [project] Project root dir.
-$self.project[]
+# @{string} [base] Base dir.
+$self.base[]
 
 # @{table} [files] Autoloaded files.
 $self.includes[^table::create{hash:path:used}[
@@ -125,6 +122,7 @@ $params[^hash::create[$params]]
 		$used[false]
 
 		$path[^self._normalizePath[^self._toPosix[$path]]]
+		$path[^self._relativePath[$self.root][$path]]
 
 		^if(^path.left(1) ne "/"){
 			$path[/${path}]
@@ -158,6 +156,7 @@ $params[^hash::create[$params]]
 
 	^if($force || $prefix eq "*" || !^self.prefixes.locate[name;$prefix]){
 		$path[^self._normalizePath[^self._toPosix[$path]]]
+		$path[^self._relativePath[$self.root][$path]]
 
 		^if(^path.left(1) ne "/"){
 			$path[/${path}]
@@ -190,13 +189,10 @@ $params[^hash::create[$params]]
 # find Root dir.
 $self.root[^self._findRoot[$params.root]]
 
-# find Project vendor dir.
-$self.vendor[^self._findVendor[$params.vendor]]
+# find Base dir.
+$self.base[^self._findBase[$params.vendor]]
 
-# find Project root dir.
-$self.project[^self._findProject[$params.project]]
-
-# find $MAIN:CLASS_PATH
+ find $MAIN:CLASS_PATH
 ^if(!def $MAIN:CLASS_PATH){
 	$MAIN:CLASS_PATH[^table::create{path}]
 }($MAIN:CLASS_PATH is string){
@@ -236,34 +232,45 @@ $result[^self._normalizePath[^self._toPosix[$result]]]
 
 
 ###############################################################################
-@_findVendor[path][locals]
-$result[$path]
+@_findBase[vendor][locals]
+$root[$self.root]
+$base[^table::create{path}]
+$vendor[^self._normalizePath[^self._toPosix[$vendor]]]
 
-^if(def $result){
-	$result[^self._relativePath[$self.root][$result]]
-	$result[^self._normalizePath[^self._toPosix[$result]]]
+$_root[^root.split[/]]
+$_root[^_root.select(def ^_root.piece.trim[] && ^_root.piece.trim[] ne ".")]
+
+$_vendor[^vendor.split[/]]
+$_vendor[^_vendor.select(def ^_vendor.piece.trim[] && ^_vendor.piece.trim[] ne ".")]
+
+^if($_root <= $_vendor){
+	$_pieces[$_vendor]
+	$_common[$_root]
+}{
+	$_pieces[$_root]
+	$_common[$_vendor]
 }
-#end @_findVendor[]
 
+^_pieces.menu{
+	^break(^_pieces.offset[] != ^_common.offset[])
 
-###############################################################################
-@_findProject[path][locals]
-$result[$path]
-
-^if(!def $result){
-	$i(20)
-
-	^while($i && !-f "${result}/composer.json"){
-		$result[../${result}]
-		^i.dec[]
+	^if(^_pieces.piece.trim[] eq ^_common.piece.trim[]){
+		^base.append{^_pieces.piece.trim[]}
+	}{
+		^break[]
 	}
+
+	^_common.offset[cur](1)
 }
 
-^if(def $result){
-	$result[^self._relativePath[$self.root][$result]]
-	$result[^self._normalizePath[^self._toPosix[$result]]]
+^if($base){
+	$base[/^base.menu{$base.path}[/]]
+}{
+	$base[$self.root]
 }
-#end @_findProject[]
+
+$result[$base]
+#end @_findBase[]
 
 
 ###############################################################################

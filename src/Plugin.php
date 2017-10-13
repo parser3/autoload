@@ -62,10 +62,10 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         $this->io = $io;
         $this->composer = $composer;
         $this->filesystem = new Filesystem();
-        
+
         // Project root directory.
         $this->rootDir = $this->filesystem->normalizePath(realpath(realpath(getcwd())));
-        
+
         // Project vendor directory.
         $this->vendorDir = $this->filesystem->normalizePath(realpath(realpath($this->composer->getConfig()->get('vendor-dir'))));
     }
@@ -208,11 +208,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private function parsePath($path)
     {
-        $path = str_replace($this->vendorDir, '\${MAIN:AUTOLOAD.vendor}', $path);
-        $path = str_replace($this->rootDir, '\${MAIN:AUTOLOAD.project}', $path);
-        
+        $path = str_replace($this->rootDir, '\${MAIN:AUTOLOAD.base}', $path);
         $path = str_replace("\\", "/", $path);
-        
         $path = trim($path, "/");
 
         return $path;
