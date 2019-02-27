@@ -192,7 +192,7 @@ $self.root[^self._findRoot[$params.root]]
 # find Base dir.
 $self.base[^self._findBase[$params.vendor]]
 
- find $MAIN:CLASS_PATH
+# find $MAIN:CLASS_PATH
 ^if(!def $MAIN:CLASS_PATH){
 	$MAIN:CLASS_PATH[^table::create{path}]
 }($MAIN:CLASS_PATH is string){
