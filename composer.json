@@ -3,7 +3,12 @@
     "type": "composer-plugin",
     "version": "1.0.1",
     "description": "Composer plugin for Parser3 autoload dump.",
-    "keywords": ["parser3", "composer", "autoload", "plugin"],
+    "keywords": [
+        "parser3",
+        "composer",
+        "autoload",
+        "plugin"
+    ],
     "homepage": "https://github.com/parser3/autoload",
     "license": "MIT",
     "authors": [
@@ -18,26 +23,32 @@
         "issues": "https://github.com/parser3/autoload/issues"
     },
     "require": {
-        "composer-plugin-api": "^1.0"
+        "composer-plugin-api": "^2.0"
     },
     "require-dev": {
-        "composer/composer": "^1.2",
-        "phpunit/phpunit": "^5.6"
+        "composer/composer": "^2.0"
     },
     "autoload": {
         "psr-4": {
-            "Parser\\Composer\\": ["src/"]
+            "Parser\\Composer\\": [
+                "src/"
+            ]
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Parser\\Composer\\Test\\": ["test/"]
+            "Parser\\Composer\\Test\\": [
+                "test/"
+            ]
         }
     },
     "extra": {
         "class": "Parser\\Composer\\Plugin"
     },
     "repositories": [
-        {"type": "composer", "url": "https://pkg.parser.ru"}
+        {
+            "type": "composer",
+            "url": "https://pkg.parser.ru"
+        }
     ]
 }
